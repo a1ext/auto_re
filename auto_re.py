@@ -123,7 +123,7 @@ class AutoREView(idaapi.PluginForm):
         item_header.setToolTip("Address")
         model.setHorizontalHeaderItem(0, item_header)
 
-        item_header = QtGui.QStandardItem("Funcion name")
+        item_header = QtGui.QStandardItem("Function name")
         model.setHorizontalHeaderItem(1, item_header)
 
         item_header = QtGui.QStandardItem("API called")
