@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
 
+from collections import defaultdict
 import idaapi
 from idautils import FuncItems
 from idaapi import o_reg, o_imm, o_far, o_near, o_mem
@@ -136,7 +137,7 @@ class AutoREView(idaapi.PluginForm):
         return [rv, QtGui.QStandardItem(), QtGui.QStandardItem()]
 
     def _tv_make_ref_item(self, tag, ref):
-        ea_item = QtGui.QStandardItem(('%#0' + get_addr_width() + 'X') % ref['ea'])
+        ea_item = QtGui.QStandardItem(('%0' + get_addr_width() + 'X') % ref['ea'])
         ea_item.setEditable(False)
         ea_item.setData(ref['ea'], self.ADDR_ROLE)
 
@@ -144,9 +145,11 @@ class AutoREView(idaapi.PluginForm):
         name_item.setEditable(False)
         name_item.setData(ref['ea'], self.ADDR_ROLE)
 
-        api_name = QtGui.QStandardItem(ref['tags'][tag])
+        apis = ', '.join(ref['tags'][tag])
+        api_name = QtGui.QStandardItem(apis)
         api_name.setEditable(False)
         api_name.setData(ref['ea'], self.ADDR_ROLE)
+        api_name.setToolTip(apis)
 
         return [ea_item, name_item, api_name]
 
@@ -201,7 +204,7 @@ class auto_re_t(idaapi.plugin_t):
     #     pass
 
     def _handle_tags(self, fn, fn_an):
-        tags = fn_an['tags']
+        tags = dict(fn_an['tags'])
         if not tags:
             return
         print 'fn: %#08x tags: %s' % (fn.startEA, tags)
@@ -293,7 +296,7 @@ class auto_re_t(idaapi.plugin_t):
             return
 
         name = idaapi.get_ea_name(dis.Op1.addr)
-        name = name.replace('__imp__', '')
+        name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
 
         if '@' in name:
             name = name.split('@')[0]
@@ -306,20 +309,18 @@ class auto_re_t(idaapi.plugin_t):
             return
 
         for tag, names in TAGS.items():
-            if tag in rv['tags']:
-                continue
             if name in TAGS_IGNORE_LIST:
                 continue
 
             for tag_api in names:
                 if tag_api in name:
                     # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
-                    rv['tags'][tag] = name
+                    rv['tags'][tag].append(name)
                     break
 
     @classmethod
     def analyze_func(cls, fn):
-        rv = {'fn': fn, 'calls': [], 'math': [], 'has_bads': False, 'tags': {}}
+        rv = {'fn': fn, 'calls': [], 'math': [], 'has_bads': False, 'tags': defaultdict(list)}
         items = cls.disasm_func(fn)
 
         for item in items:
