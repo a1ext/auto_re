@@ -273,7 +273,7 @@ class auto_re_t(idaapi.plugin_t):
             self.view = AutoREView(self._data)
             self.view.Show()
         except:
-            idaapi.msg('AutoRE: address not found\nerror: %s\n' % traceback.format_exc())
+            idaapi.msg('AutoRE: error: %s\n' % traceback.format_exc())
 
     def term(self):
         pass
