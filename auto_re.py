@@ -8,26 +8,16 @@ from idaapi import o_reg, o_imm, o_far, o_near, o_mem
 import traceback
 
 
-# HAS_PYSIDE = False
-# try:
-#     from PySide import QtGui, QtCore
-#     from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit
-#
-#     _slot = QtCore.Slot
-#     global HAS_PYSIDE
-#     HAS_PYSIDE = True
-# except ImportError:
-#     from PyQt5 import QtGui, QtCore
-#     from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
-#
-#     # dummy
-#     def _slot(fn):
-#         def wrap(*args, **kwargs):
-#             return fn(*args, **kwargs)
-#         return wrap
+HAS_PYSIDE = False
+try:
+    from PySide import QtGui, QtCore
+    from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit
 
-from PyQt5 import QtGui, QtCore
-from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
+    HAS_PYSIDE = True
+except ImportError:
+    from PyQt5 import QtGui, QtCore
+    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
+
 
 
 TAGS_IGNORE_LIST = {
@@ -86,10 +76,10 @@ class AutoREView(idaapi.PluginForm):
         return idaapi.PluginForm.Show(self, 'AutoRE', options=idaapi.PluginForm.FORM_PERSIST)
 
     def OnCreate(self, form):
-        # if HAS_PYSIDE:
-        #     self.parent = self.FormToPySideWidget(form)
-        # else:
-        self.parent = self.FormToPyQtWidget(form)
+        if HAS_PYSIDE:
+            self.parent = self.FormToPySideWidget(form)
+        else:
+            self.parent = self.FormToPyQtWidget(form)
 
         self.tv = QTreeView()
         self.tv.setExpandsOnDoubleClick(False)
