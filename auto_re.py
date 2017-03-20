@@ -3,8 +3,9 @@ __author__ = 'Trafimchuk Aliaksandr'
 
 from collections import defaultdict
 import idaapi
-from idautils import FuncItems
+from idautils import FuncItems, CodeRefsTo
 from idaapi import o_reg, o_imm, o_far, o_near, o_mem
+import os
 import traceback
 
 
@@ -18,6 +19,13 @@ except ImportError:
     from PyQt5 import QtGui, QtCore
     from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
 
+
+# enable to allow PyCharm remote debug
+RDEBUG = False
+# adjust this value to be a full path to a debug egg
+RDEBUG_EGG = r'c:\Program Files (x86)\JetBrains\PyCharm 2016.3\debug-eggs\pycharm-debug.egg'
+RDEBUG_HOST = 'localhost'
+RDEBUG_PORT = 12321
 
 
 TAGS_IGNORE_LIST = {
@@ -71,6 +79,8 @@ class AutoREView(idaapi.PluginForm):
     def __init__(self, data):
         super(AutoREView, self).__init__()
         self._data = data
+        self.tv = None
+        self._model = None
 
     def Show(self):
         return idaapi.PluginForm.Show(self, 'AutoRE', options=idaapi.PluginForm.FORM_PERSIST)
@@ -120,6 +130,7 @@ class AutoREView(idaapi.PluginForm):
         item_header = QtGui.QStandardItem("API called")
         model.setHorizontalHeaderItem(2, item_header)
 
+    # noinspection PyMethodMayBeStatic
     def _tv_make_tag_item(self, name):
         rv = QtGui.QStandardItem(name)
 
@@ -180,6 +191,10 @@ class auto_re_t(idaapi.plugin_t):
     _PREFIX_NAME = 'au_re_'
     _MIN_MAX_MATH_OPS_TO_ALLOW_RENAME = 10
 
+    def __init__(self):
+        super(auto_re_t, self).__init__()
+        self._data = None
+
     def init(self):
         # self._cfg = None
         self.view = None
@@ -193,7 +208,15 @@ class auto_re_t(idaapi.plugin_t):
     # def _store_config(self, cfg):
     #     pass
 
-    def _handle_tags(self, fn, fn_an):
+    def _handle_tags(self, fn, fn_an, known_refs):
+        if known_refs:
+            known_refs = dict(known_refs)
+            for k, names in known_refs.items():
+                existing = set(fn_an['tags'][k])
+                new = set(names) - existing
+                if new:
+                    fn_an['tags'][k] += list(new)
+
         tags = dict(fn_an['tags'])
         if not tags:
             return
@@ -242,10 +265,95 @@ class auto_re_t(idaapi.plugin_t):
             fn.startEA, len(fn_an['calls']), len(fn_an['math']), 'has bads' if fn_an['has_bads'] else '',
             possible_name, normalized)
 
+    # noinspection PyMethodMayBeStatic
+    def _check_is_jmp_wrapper(self, dis):
+        # checks instructions like `jmp API`
+        if dis.itype not in (idaapi.NN_jmp, idaapi.NN_jmpni, idaapi.NN_jmpfi, idaapi.NN_jmpshort):
+            return
+
+        # handle call wrappers like jmp GetProcAddress
+        if dis.Op1.type == idaapi.o_mem and dis.Op1.addr:
+            # TODO: check is there better way to determine is the function a wrapper
+            v = dis.Op1.addr
+            return v
+
+    # noinspection PyMethodMayBeStatic
+    def _check_is_push_retn_wrapper(self, dis0, dis1):
+        """
+        Checks for sequence of push IMM32/retn
+        :param dis0: the first insn
+        :param dis1: the second insn
+        :return: value of IMM32
+        """
+        if dis0.itype != idaapi.NN_push or dis0.Op1.type != idaapi.o_imm or not dis0.Op1.value:
+            return
+
+        if dis1.itype not in (idaapi.NN_retn,):
+            return
+
+        return dis0.Op1.value
+
+    def _preprocess_api_wrappers(self, fnqty):
+        rv = defaultdict(dict)
+
+        for i in xrange(fnqty):
+            fn = idaapi.getn_func(i)
+            items = list(FuncItems(fn.startEA))
+            if len(items) not in (1, 2):
+                continue
+
+            if idaapi.decode_insn(items[0]) <= 0:
+                continue
+            dis0 = idaapi.cmd.copy()
+            addr = self._check_is_jmp_wrapper(dis0)
+
+            if not addr and len(items) > 1 and idaapi.decode_insn(items[1]) > 0:
+                dis1 = idaapi.cmd.copy()
+                addr = self._check_is_push_retn_wrapper(dis0, dis1)
+
+            if not addr:
+                continue
+
+            name = idaapi.get_ea_name(addr)
+            name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
+            if not name:
+                continue
+
+            for tag, names in TAGS.items():
+                for tag_api in names:
+                    if tag_api in name:
+                        refs = list(CodeRefsTo(fn.startEA, 1))
+
+                        for ref in refs:
+                            ref_fn = idaapi.get_func(ref)
+                            if not ref_fn:
+                                # idaapi.msg('AutoRE: there is no func for ref: %08x for api: %s' % (ref, name))
+                                continue
+                            if tag not in rv[ref_fn.startEA]:
+                                rv[ref_fn.startEA][tag] = list()
+                            rv[ref_fn.startEA][tag].append(name)
+        return dict(rv)
+
     def run(self, arg):
+        if RDEBUG and RDEBUG_EGG:
+            if not os.path.isfile(RDEBUG_EGG):
+                idaapi.msg('AutoRE: Remote debug is enabled, but I cannot find the debug egg: %s' % RDEBUG_EGG)
+            else:
+                import sys
+
+                if RDEBUG_EGG not in sys.path:
+                    sys.path.append(RDEBUG_EGG)
+
+                import pydevd
+                pydevd.settrace(RDEBUG_HOST, port=RDEBUG_PORT, stdoutToServer=True, stderrToServer=True)  # , stdoutToServer=True, stderrToServer=True
+
         try:
             self._data = dict()
             count = idaapi.get_func_qty()
+
+            # pre-process of api wrapper functions
+            known_refs_tags = self._preprocess_api_wrappers(count)
+
             for i in xrange(count):
                 fn = idaapi.getn_func(i)
                 fn_an = self.analyze_func(fn)
@@ -256,7 +364,8 @@ class auto_re_t(idaapi.plugin_t):
                 if idaapi.has_dummy_name(idaapi.getFlags(fn.startEA)):
                     self._handle_calls(fn, fn_an)
 
-                self._handle_tags(fn, fn_an)
+                known_refs = known_refs_tags.get(fn.startEA)
+                self._handle_tags(fn, fn_an, known_refs)
 
             if self.view:
                 self.view.Close(idaapi.PluginForm.FORM_NO_CONTEXT)
@@ -266,7 +375,7 @@ class auto_re_t(idaapi.plugin_t):
             idaapi.msg('AutoRE: error: %s\n' % traceback.format_exc())
 
     def term(self):
-        pass
+        self._data = None
 
     @classmethod
     def disasm_func(cls, fn):
@@ -298,10 +407,10 @@ class auto_re_t(idaapi.plugin_t):
             rv['calls'].pop()
             return
 
-        for tag, names in TAGS.items():
-            if name in TAGS_IGNORE_LIST:
-                continue
+        if name in TAGS_IGNORE_LIST:
+            return
 
+        for tag, names in TAGS.items():
             for tag_api in names:
                 if tag_api in name:
                     # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
@@ -355,5 +464,6 @@ class auto_re_t(idaapi.plugin_t):
     #     curloc.mark(slot[0], name, name)
 
 
+# noinspection PyPep8Naming
 def PLUGIN_ENTRY():
     return auto_re_t()
