@@ -53,7 +53,7 @@ TAGS = {
               'RtlCreateUserProcess', 'NtCreateSection', 'ZwCreateSection', 'NtOpenSection', 'ZwOpenSection',
               'NtAllocateVirtualMemory', 'ZwAllocateVirtualMemory', 'NtWriteVirtualMemory', 'ZwWriteVirtualMemory',
               'NtMapViewOfSection', 'ZwMapViewOfSection', 'OpenSCManager', 'CreateService', 'OpenService',
-              'StartService', 'ControlService'],
+              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW'],
     'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'WriteProcessMemory', 'CreateRemoteThread', 'QueueUserAPC'],
     'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage'],
     'crypto': ['CryptAcquireContext', 'CryptProtectData', 'CryptUnprotectData', 'CryptProtectMemory',
