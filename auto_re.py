@@ -53,7 +53,7 @@ TAGS = {
               'RtlCreateUserProcess', 'NtCreateSection', 'ZwCreateSection', 'NtOpenSection', 'ZwOpenSection',
               'NtAllocateVirtualMemory', 'ZwAllocateVirtualMemory', 'NtWriteVirtualMemory', 'ZwWriteVirtualMemory',
               'NtMapViewOfSection', 'ZwMapViewOfSection', 'OpenSCManager', 'CreateService', 'OpenService',
-              'StartService', 'ControlService'],
+              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW'],
     'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'NtOpenProcess', 'WriteProcessMemory', 'NtWriteVirtualMemory',
                'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection', 'NtUnmapViewOfSection'],
     'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage'],
@@ -344,7 +344,8 @@ class auto_re_t(idaapi.plugin_t):
                                 continue
                             if tag not in rv[ref_fn.startEA]:
                                 rv[ref_fn.startEA][tag] = list()
-                            rv[ref_fn.startEA][tag].append(name)
+                            if name not in rv[ref_fn.startEA][tag]:
+                                rv[ref_fn.startEA][tag].append(name)
         return dict(rv)
 
     def run(self, arg):
@@ -426,7 +427,7 @@ class auto_re_t(idaapi.plugin_t):
 
         for tag, names in TAGS.items():
             for tag_api in names:
-                if tag_api in name:
+                if tag_api in name and name not in rv['tags'][tag]:
                     # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
                     rv['tags'][tag].append(name)
                     break
