@@ -54,12 +54,14 @@ TAGS = {
               'NtAllocateVirtualMemory', 'ZwAllocateVirtualMemory', 'NtWriteVirtualMemory', 'ZwWriteVirtualMemory',
               'NtMapViewOfSection', 'ZwMapViewOfSection', 'OpenSCManager', 'CreateService', 'OpenService',
               'StartService', 'ControlService'],
-    'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'WriteProcessMemory', 'CreateRemoteThread', 'QueueUserAPC'],
+    'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'NtOpenProcess', 'WriteProcessMemory', 'NtWriteVirtualMemory',
+               'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection', 'NtUnmapViewOfSection'],
     'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage'],
     'crypto': ['CryptAcquireContext', 'CryptProtectData', 'CryptUnprotectData', 'CryptProtectMemory',
                'CryptUnprotectMemory', 'CryptDecrypt', 'CryptEncrypt', 'CryptHashData', 'CryptDecodeMessage',
                'CryptDecryptMessage', 'CryptEncryptMessage', 'CryptHashMessage', 'CryptExportKey', 'CryptGenKey',
-               'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage']
+               'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage'],
+    'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW']
 }
 
 blacklist = {'@__security_check_cookie@4', '__SEH_prolog4', '__SEH_epilog4'}
@@ -71,6 +73,16 @@ replacements = [
 
 def get_addr_width():
     return '16' if idaapi.cvar.inf.is_64bit() else '8'
+
+
+def decode_insn(ea):
+    if idaapi.IDA_SDK_VERSION >= 700:
+        insn = idaapi.insn_t()
+        if idaapi.decode_insn(insn, ea) > 0:
+            return insn
+    else:
+        if idaapi.decode_insn(ea):
+            return idaapi.cmd.copy()
 
 
 class AutoREView(idaapi.PluginForm):
@@ -302,14 +314,15 @@ class auto_re_t(idaapi.plugin_t):
             if len(items) not in (1, 2):
                 continue
 
-            if idaapi.decode_insn(items[0]) <= 0:
+            dis0 = decode_insn(items[0])
+            if dis0 is None:
                 continue
-            dis0 = idaapi.cmd.copy()
             addr = self._check_is_jmp_wrapper(dis0)
 
-            if not addr and len(items) > 1 and idaapi.decode_insn(items[1]) > 0:
-                dis1 = idaapi.cmd.copy()
-                addr = self._check_is_push_retn_wrapper(dis0, dis1)
+            if not addr and len(items) > 1:
+                dis1 = decode_insn(items[1])
+                if dis1 is not None:
+                    addr = self._check_is_push_retn_wrapper(dis0, dis1)
 
             if not addr:
                 continue
@@ -383,8 +396,9 @@ class auto_re_t(idaapi.plugin_t):
         items = list(FuncItems(fn.startEA))
         for item_ea in items:
             obj = {'ea': item_ea, 'fn_ea': fn.startEA, 'dis': None}
-            if idaapi.decode_insn(item_ea) > 0:
-                obj['dis'] = idaapi.cmd.copy()
+            insn = decode_insn(item_ea)
+            if insn is not None:
+                obj['dis'] = insn
             rv.append(obj)
         return rv
 
