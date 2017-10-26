@@ -23,3 +23,8 @@ Some screenshots of TAGS view:
 
 How TAGs look in unexplored code:
 ![tags_in_unexplored_code.png](docs/tags_in_unexplored_code.png)
+
+
+# Installation
+
+Just copy `auto_re.py` to the `IDA\plugins` directory and it will be available through `Edit -> Plugins -> Auto RE` menu
