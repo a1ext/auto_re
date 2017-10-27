@@ -205,6 +205,12 @@ class auto_re_t(idaapi.plugin_t):
     _PREFIX_NAME = 'au_re_'
     _MIN_MAX_MATH_OPS_TO_ALLOW_RENAME = 10
 
+    _CALLEE_NODE_NAMES = {
+        idaapi.PLFM_MIPS: '$ mips',
+        idaapi.PLFM_ARM: '$ arm'
+    }
+    _DEFAULT_CALLEE_NODE_NAME = '$ vmm functions'
+
     def __init__(self):
         super(auto_re_t, self).__init__()
         self._data = None
@@ -406,12 +412,31 @@ class auto_re_t(idaapi.plugin_t):
         return rv
 
     @classmethod
+    def get_callee_netnode(cls):
+        node_name = cls._CALLEE_NODE_NAMES.get(idaapi.ph.id, cls._DEFAULT_CALLEE_NODE_NAME)
+        n = idaapi.netnode(node_name)
+        return n
+
+    @classmethod
+    def get_callee(cls, ea):
+        n = cls.get_callee_netnode()
+        v = n.altval(ea)
+        v -= 1
+        if v == idaapi.BADNODE:
+            return
+        return v
+
+    @classmethod
     def _analysis_handle_call_insn(cls, dis, rv):
         rv['calls'].append(dis)
         if dis.Op1.type != o_mem or not dis.Op1.addr:
-            return
+            callee = cls.get_callee(dis.ip)
+            if not callee:
+                return
+        else:
+            callee = dis.Op1.addr
 
-        name = idaapi.get_ea_name(dis.Op1.addr)
+        name = idaapi.get_ea_name(callee)
         name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
 
         if '@' in name:
