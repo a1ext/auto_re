@@ -6,16 +6,15 @@ import idaapi
 from idautils import FuncItems, CodeRefsTo
 from idaapi import o_reg, o_imm, o_far, o_near, o_mem
 import os
+import sys
 import traceback
 
 
-HAS_PYSIDE = False
-try:
+HAS_PYSIDE = idaapi.IDA_SDK_VERSION < 690
+if HAS_PYSIDE:
     from PySide import QtGui, QtCore
     from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit
-
-    HAS_PYSIDE = True
-except ImportError:
+else:
     from PyQt5 import QtGui, QtCore
     from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
 
@@ -78,7 +77,7 @@ def get_addr_width():
 
 
 def decode_insn(ea):
-    if idaapi.IDA_SDK_VERSION >= 700:
+    if idaapi.IDA_SDK_VERSION >= 700 and sys.maxsize > 2**32:
         insn = idaapi.insn_t()
         if idaapi.decode_insn(insn, ea) > 0:
             return insn
@@ -130,7 +129,6 @@ class AutoREView(idaapi.PluginForm):
         # self.le_filter.textChanged.connect(self.on_filter_text_changed)
 
     def OnClose(self, form):
-        # print 'TODO: OnClose(): clear the pointer to form in the plugin'
         pass
 
     def _tv_init_header(self, model):
