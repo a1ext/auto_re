@@ -4,7 +4,7 @@ __author__ = 'Trafimchuk Aliaksandr'
 from collections import defaultdict
 import idaapi
 from idautils import FuncItems, CodeRefsTo
-from idaapi import o_reg, o_imm, o_far, o_near, o_mem
+from idaapi import o_reg, o_imm, o_far, o_near, o_mem, o_displ
 import os
 import sys
 import traceback
@@ -22,7 +22,7 @@ else:
 # enable to allow PyCharm remote debug
 RDEBUG = False
 # adjust this value to be a full path to a debug egg
-RDEBUG_EGG = r'c:\Program Files (x86)\JetBrains\PyCharm 2016.3\debug-eggs\pycharm-debug.egg'
+RDEBUG_EGG = r'c:\Program Files\JetBrains\PyCharm 2017.1.4\debug-eggs\pycharm-debug.egg'
 RDEBUG_HOST = 'localhost'
 RDEBUG_PORT = 12321
 
@@ -209,6 +209,8 @@ class auto_re_t(idaapi.plugin_t):
     }
     _DEFAULT_CALLEE_NODE_NAME = '$ vmm functions'
 
+    _JMP_TYPES = {idaapi.NN_jmp, idaapi.NN_jmpni, idaapi.NN_jmpfi, idaapi.NN_jmpshort}
+
     def __init__(self):
         super(auto_re_t, self).__init__()
         self._data = None
@@ -269,6 +271,10 @@ class auto_re_t(idaapi.plugin_t):
         if idaapi.has_dummy_name(idaapi.getFlags(ea)):
             return
 
+        # TODO: check is there jmp, push+retn then don't rename the func
+        if fn_an['strange_flow']:
+            return
+
         possible_name = idaapi.get_ea_name(ea)
         if not possible_name or possible_name in blacklist:
             return
@@ -286,7 +292,7 @@ class auto_re_t(idaapi.plugin_t):
     # noinspection PyMethodMayBeStatic
     def _check_is_jmp_wrapper(self, dis):
         # checks instructions like `jmp API`
-        if dis.itype not in (idaapi.NN_jmp, idaapi.NN_jmpni, idaapi.NN_jmpfi, idaapi.NN_jmpshort):
+        if dis.itype not in self._JMP_TYPES:
             return
 
         # handle call wrappers like jmp GetProcAddress
@@ -459,8 +465,16 @@ class auto_re_t(idaapi.plugin_t):
 
     @classmethod
     def analyze_func(cls, fn):
-        rv = {'fn': fn, 'calls': [], 'math': [], 'has_bads': False, 'tags': defaultdict(list)}
+        rv = {
+            'fn': fn,
+            'calls': [],
+            'math': [],
+            'has_bads': False,
+            'strange_flow': False,
+            'tags': defaultdict(list)
+        }
         items = cls.disasm_func(fn)
+        items_set = set(map(lambda x: x['ea'], items))
 
         for item in items:
             dis = item['dis']
@@ -478,6 +492,19 @@ class auto_re_t(idaapi.plugin_t):
                                idaapi.NN_rol, idaapi.NN_rcl, idaapi.NN_rcl):
                 # TODO
                 rv['math'].append(dis)
+            elif dis.itype in cls._JMP_TYPES:
+                if dis.Op1.type not in (o_far, o_near, o_mem, o_displ):
+                    continue
+
+                if dis.Op1.type == o_displ:
+                    rv['strange_flow'] = True
+                    continue
+
+                ea = dis.Op1.value
+                if not ea and dis.Op1.addr:
+                    ea = dis.Op1.addr
+                if ea not in items_set:
+                    rv['strange_flow'] = True
 
         return rv
 
