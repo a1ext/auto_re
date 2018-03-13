@@ -6,6 +6,7 @@ import idaapi
 from idautils import FuncItems, CodeRefsTo
 from idaapi import o_reg, o_imm, o_far, o_near, o_mem, o_displ
 import os
+import re
 import sys
 import traceback
 
@@ -62,8 +63,12 @@ TAGS = {
                'CryptUnprotectMemory', 'CryptDecrypt', 'CryptEncrypt', 'CryptHashData', 'CryptDecodeMessage',
                'CryptDecryptMessage', 'CryptEncryptMessage', 'CryptHashMessage', 'CryptExportKey', 'CryptGenKey',
                'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage'],
-    'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW']
+    'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW'],
+    'file': ['_open64', 'open64', 'open', 'open64', 'fopen', 'fread', 'fclose', 'fwrite', 'flock', 'read', 'write',
+             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64']
 }
+
+STRICT_TAG_NAME_CHECKING = {'file'}
 
 blacklist = {'@__security_check_cookie@4', '__SEH_prolog4', '__SEH_epilog4'}
 replacements = [
@@ -214,6 +219,7 @@ class auto_re_t(idaapi.plugin_t):
     def __init__(self):
         super(auto_re_t, self).__init__()
         self._data = None
+        self.view = None
 
     def init(self):
         # self._cfg = None
@@ -299,6 +305,8 @@ class auto_re_t(idaapi.plugin_t):
         if dis.Op1.type == idaapi.o_mem and dis.Op1.addr:
             # TODO: check is there better way to determine is the function a wrapper
             v = dis.Op1.addr
+            if v and dis.itype == idaapi.NN_jmpni and idaapi.isData(idaapi.getFlags(v)) and self.__is_ptr_val(idaapi.getFlags(v)):
+                v = self.__get_ptr_val(v)
             return v
 
     # noinspection PyMethodMayBeStatic
@@ -346,18 +354,24 @@ class auto_re_t(idaapi.plugin_t):
 
             for tag, names in TAGS.items():
                 for tag_api in names:
-                    if tag_api in name:
-                        refs = list(CodeRefsTo(fn.startEA, 1))
+                    if tag in STRICT_TAG_NAME_CHECKING:
+                        match = tag_api in (name, name.lstrip('_'))
+                    else:
+                        match = tag_api in name
+                    if not match:
+                        continue
 
-                        for ref in refs:
-                            ref_fn = idaapi.get_func(ref)
-                            if not ref_fn:
-                                # idaapi.msg('AutoRE: there is no func for ref: %08x for api: %s' % (ref, name))
-                                continue
-                            if tag not in rv[ref_fn.startEA]:
-                                rv[ref_fn.startEA][tag] = list()
-                            if name not in rv[ref_fn.startEA][tag]:
-                                rv[ref_fn.startEA][tag].append(name)
+                    refs = list(CodeRefsTo(fn.startEA, 1))
+
+                    for ref in refs:
+                        ref_fn = idaapi.get_func(ref)
+                        if not ref_fn:
+                            # idaapi.msg('AutoRE: there is no func for ref: %08x for api: %s' % (ref, name))
+                            continue
+                        if tag not in rv[ref_fn.startEA]:
+                            rv[ref_fn.startEA][tag] = list()
+                        if name not in rv[ref_fn.startEA][tag]:
+                            rv[ref_fn.startEA][tag].append(name)
         return dict(rv)
 
     def run(self, arg):
@@ -440,7 +454,11 @@ class auto_re_t(idaapi.plugin_t):
         else:
             callee = dis.Op1.addr
 
-        name = idaapi.get_ea_name(callee)
+        cls._apply_tag_on_callee(callee, rv, is_call=True)
+
+    @classmethod
+    def _apply_tag_on_callee(cls, callee_ea, rv, is_call=False):
+        name = idaapi.get_ea_name(callee_ea)
         name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
 
         if '@' in name:
@@ -450,7 +468,8 @@ class auto_re_t(idaapi.plugin_t):
             return
 
         if name in IGNORE_CALL_LIST:
-            rv['calls'].pop()
+            if is_call:
+                rv['calls'].pop()
             return
 
         if name in TAGS_IGNORE_LIST:
@@ -458,10 +477,27 @@ class auto_re_t(idaapi.plugin_t):
 
         for tag, names in TAGS.items():
             for tag_api in names:
-                if tag_api in name and name not in rv['tags'][tag]:
-                    # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
-                    rv['tags'][tag].append(name)
-                    break
+                if tag in STRICT_TAG_NAME_CHECKING:
+                    match = tag_api in (name, name.lstrip('_'))
+                else:
+                    match = tag_api in name
+                if not match or name in rv['tags'][tag]:
+                    continue
+
+                # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
+                rv['tags'][tag].append(name)
+                break
+
+    @classmethod
+    def __is_ptr_val(cls, flags):
+        return (idaapi.is_qword if idaapi.cvar.inf.is_64bit() else idaapi.is_dword)(flags)
+
+    @classmethod
+    def __get_ptr_val(cls, ea):
+        if idaapi.cvar.inf.is_64bit():
+            return idaapi.get_qword(ea)
+
+        return (idaapi.get_dword if idaapi.IDA_SDK_VERSION >= 700 else idaapi.get_long)(ea)
 
     @classmethod
     def analyze_func(cls, fn):
@@ -505,6 +541,13 @@ class auto_re_t(idaapi.plugin_t):
                     ea = dis.Op1.addr
                 if ea not in items_set:
                     rv['strange_flow'] = True
+
+                # flags = idaapi.getFlags(ea)
+                # if dis.itype == idaapi.NN_jmpni and dis.Op1.type == o_mem and ea and idaapi.isData(flags):
+                #     if cls.__is_ptr_val(flags):
+                #         val = cls.__get_ptr_val(ea)
+                #         if val:
+                #             cls._apply_tag_on_callee(val, rv, is_call=False)
 
         return rv
 
