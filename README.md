@@ -1,7 +1,7 @@
 Features
 ========
 
-## 1. Auto-renaming dummy-named functions, which have one API call
+## 1. Auto-renaming dummy-named functions, which have one API call or jump to the imported API
 
 ### Before
 ![auto_rename_src.png](docs/auto_rename_src.png)
@@ -12,7 +12,7 @@ Features
 
 ## 2. Assigning TAGS to functions accordingly to called API-indicators inside
 
-* Setting tags as repeatable function comments and displaying TAG tree in the separate view
+* Sets tags as repeatable function comments and displays TAG tree in the separate view
 
 
 Some screenshots of TAGS view:
@@ -24,6 +24,10 @@ Some screenshots of TAGS view:
 How TAGs look in unexplored code:
 ![tags_in_unexplored_code.png](docs/tags_in_unexplored_code.png)
 
+
+You can easily rename function using its context menu or just pressing `n` hotkey:
+
+![function_rename.png](docs/function_rename.png)
 
 # Installation
 

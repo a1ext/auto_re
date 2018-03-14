@@ -100,15 +100,22 @@ class AutoReIDPHooks(idaapi.IDP_Hooks):
         self._view = view
 
     def __on_rename(self, ea, new_name):
-        if self._view:
-            items = self._view._model.findItems(('%0' + get_addr_width() + 'X') % ea, QtCore.Qt.MatchRecursive)
-            if len(items) == 1:
-                item = items[0]
-                index = self._view._model.indexFromItem(item)
-                if index.isValid():
-                    name_index = index.sibling(index.row(), 1)
-                    if name_index.isValid():
-                        self._view._model.setData(name_index, new_name)
+        if not self._view:
+            return
+        items = self._view._model.findItems(('%0' + get_addr_width() + 'X') % ea, QtCore.Qt.MatchRecursive)
+        if len(items) != 1:
+            return
+
+        item = items[0]
+        index = self._view._model.indexFromItem(item)
+        if not index.isValid():
+            return
+
+        name_index = index.sibling(index.row(), 1)
+        if not name_index.isValid():
+            return
+
+        self._view._model.setData(name_index, new_name)
 
     def ev_rename(self, ea, new_name):
         """ callback for IDA >= 700 """
