@@ -14,10 +14,10 @@ import traceback
 HAS_PYSIDE = idaapi.IDA_SDK_VERSION < 690
 if HAS_PYSIDE:
     from PySide import QtGui, QtCore
-    from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit
+    from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction
 else:
     from PyQt5 import QtGui, QtCore
-    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit
+    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction
 
 
 # enable to allow PyCharm remote debug
@@ -91,6 +91,36 @@ def decode_insn(ea):
             return idaapi.cmd.copy()
 
 
+class AutoReIDPHooks(idaapi.IDP_Hooks):
+    """
+    Hooks to keep view updated if some function is updated
+    """
+    def __init__(self, view, *args):
+        super(AutoReIDPHooks, self).__init__(*args)
+        self._view = view
+
+    def __on_rename(self, ea, new_name):
+        if self._view:
+            items = self._view._model.findItems(('%0' + get_addr_width() + 'X') % ea, QtCore.Qt.MatchRecursive)
+            if len(items) == 1:
+                item = items[0]
+                index = self._view._model.indexFromItem(item)
+                if index.isValid():
+                    name_index = index.sibling(index.row(), 1)
+                    if name_index.isValid():
+                        self._view._model.setData(name_index, new_name)
+
+    def ev_rename(self, ea, new_name):
+        """ callback for IDA >= 700 """
+        self.__on_rename(ea, new_name)
+        return super(AutoReIDPHooks, self).ev_rename(ea, new_name)
+
+    def rename(self, ea, new_name):
+        """ callback for IDA < 700 """
+        self.__on_rename(ea, new_name)
+        return super(AutoReIDPHooks, self).rename(ea, new_name)
+
+
 class AutoREView(idaapi.PluginForm):
     ADDR_ROLE = QtCore.Qt.UserRole + 1
 
@@ -108,6 +138,10 @@ class AutoREView(idaapi.PluginForm):
             self.parent = self.FormToPySideWidget(form)
         else:
             self.parent = self.FormToPyQtWidget(form)
+
+        self._idp_hooks = AutoReIDPHooks(self)
+        if not self._idp_hooks.hook():
+            print 'IDP_Hooks.hook() failed'
 
         self.tv = QTreeView()
         self.tv.setExpandsOnDoubleClick(False)
@@ -132,9 +166,82 @@ class AutoREView(idaapi.PluginForm):
 
         self.tv.doubleClicked.connect(self.on_navigate_to_method_requested)
         # self.le_filter.textChanged.connect(self.on_filter_text_changed)
+        self.tv.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.tv.customContextMenuRequested.connect(self._tree_customContextMenuRequesssted)
+
+        rename_action = QAction('Rename...', self.tv)
+        rename_action.setShortcut('n')
+        rename_action.triggered.connect(self._tv_rename_action_triggered)
+        self.tv.addAction(rename_action)
+
+
+    # def __event_filter(self, source, event):
+    #     if event.type() == QtCore.QEvent.
+
+    def _tree_customContextMenuRequesssted(self, pos):
+        idx = self.tv.indexAt(pos)
+        if not idx.isValid():
+            return
+
+        addr = idx.data(role=self.ADDR_ROLE)
+        if not addr:
+            return
+
+        name_idx = idx.sibling(idx.row(), 1)
+        old_name = name_idx.data()
+
+        menu = QMenu()
+        rename_action = menu.addAction('Rename `%s`...' % old_name)
+        rename_action.setShortcut('n')
+        action = menu.exec_(self.tv.mapToGlobal(pos))
+        if action == rename_action:
+            return self._rename_ea_requested(addr, name_idx)
+
+    def _tv_rename_action_triggered(self):
+        selected = self.tv.selectionModel().selectedIndexes()
+        if not selected:
+            return
+
+        idx = selected[0]
+        if not idx.isValid():
+            return
+
+        addr = idx.data(role=self.ADDR_ROLE)
+        if not addr:
+            return
+
+        name_idx = idx.sibling(idx.row(), 1)
+        if not name_idx.isValid():
+            return
+
+        return self._rename_ea_requested(addr, name_idx)
+
+    def _rename_ea_requested(self, addr, name_idx):
+        old_name = name_idx.data()
+
+        if idaapi.IDA_SDK_VERSION >= 700:
+            new_name = idaapi.ask_str(str(old_name), 0, 'New name:')
+        else:
+            new_name = idaapi.askstr(0, str(old_name), 'New name:')
+
+        if new_name is None:
+            return
+
+        self._rename(addr, new_name)
+        renamed_name = idaapi.get_ea_name(addr)
+        name_idx.model().setData(name_idx, renamed_name)
+
+    @classmethod
+    def _rename(cls, ea, new_name):
+        if not ea or ea == idaapi.BADADDR:
+            return
+        if idaapi.IDA_SDK_VERSION >= 700:
+            return idaapi.force_name(ea, new_name, idaapi.SN_NOCHECK)
+        return idaapi.do_name_anyway(ea, new_name, 0)
 
     def OnClose(self, form):
-        pass
+        if self._idp_hooks:
+            self._idp_hooks.unhook()
 
     def _tv_init_header(self, model):
         item_header = QtGui.QStandardItem("EA")
@@ -490,7 +597,9 @@ class auto_re_t(idaapi.plugin_t):
 
     @classmethod
     def __is_ptr_val(cls, flags):
-        return (idaapi.is_qword if idaapi.cvar.inf.is_64bit() else idaapi.is_dword)(flags)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            return (idaapi.is_qword if idaapi.cvar.inf.is_64bit() else idaapi.is_dword)(flags)
+        return (idaapi.isQwrd if idaapi.cvar.inf.is_64bit() else idaapi.isDwrd)(flags)
 
     @classmethod
     def __get_ptr_val(cls, ea):
