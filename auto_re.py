@@ -14,10 +14,10 @@ import traceback
 HAS_PYSIDE = idaapi.IDA_SDK_VERSION < 690
 if HAS_PYSIDE:
     from PySide import QtGui, QtCore
-    from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction
+    from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
 else:
     from PyQt5 import QtGui, QtCore
-    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction
+    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
 
 
 # enable to allow PyCharm remote debug
@@ -131,20 +131,26 @@ class AutoReIDPHooks(idaapi.IDP_Hooks):
 class AutoREView(idaapi.PluginForm):
     ADDR_ROLE = QtCore.Qt.UserRole + 1
 
+    OPT_FORM_PERSIST = idaapi.PluginForm.FORM_PERSIST if hasattr(idaapi.PluginForm, 'FORM_PERSIST') else idaapi.PluginForm.WOPN_PERSIST
+    OPT_FORM_NO_CONTEXT = idaapi.PluginForm.FORM_NO_CONTEXT if hasattr(idaapi.PluginForm, 'FORM_NO_CONTEXT') else idaapi.PluginForm.WCLS_NO_CONTEXT
+
     def __init__(self, data):
         super(AutoREView, self).__init__()
         self._data = data
         self.tv = None
         self._model = None
+        self._idp_hooks = None
 
     def Show(self):
-        return idaapi.PluginForm.Show(self, 'AutoRE', options=idaapi.PluginForm.FORM_PERSIST)
+        return idaapi.PluginForm.Show(self, 'AutoRE', options=self.OPT_FORM_PERSIST)
+
+    def _get_parent_widget(self, form):
+        if HAS_PYSIDE:
+            return self.FormToPySideWidget(form)
+        return self.FormToPyQtWidget(form)
 
     def OnCreate(self, form):
-        if HAS_PYSIDE:
-            self.parent = self.FormToPySideWidget(form)
-        else:
-            self.parent = self.FormToPyQtWidget(form)
+        self.parent = self._get_parent_widget(form)
 
         self._idp_hooks = AutoReIDPHooks(self)
         if not self._idp_hooks.hook():
@@ -180,10 +186,6 @@ class AutoREView(idaapi.PluginForm):
         rename_action.setShortcut('n')
         rename_action.triggered.connect(self._tv_rename_action_triggered)
         self.tv.addAction(rename_action)
-
-
-    # def __event_filter(self, source, event):
-    #     if event.type() == QtCore.QEvent.
 
     def _tree_customContextMenuRequesssted(self, pos):
         idx = self.tv.indexAt(pos)
@@ -466,10 +468,12 @@ class auto_re_t(idaapi.plugin_t):
             if not name:
                 continue
 
+            imp_stripped_name = name.lstrip('_')
+
             for tag, names in TAGS.items():
                 for tag_api in names:
                     if tag in STRICT_TAG_NAME_CHECKING:
-                        match = tag_api in (name, name.lstrip('_'))
+                        match = tag_api in (name, imp_stripped_name)
                     else:
                         match = tag_api in name
                     if not match:
@@ -499,7 +503,7 @@ class auto_re_t(idaapi.plugin_t):
                     sys.path.append(RDEBUG_EGG)
 
                 import pydevd
-                pydevd.settrace(RDEBUG_HOST, port=RDEBUG_PORT, stdoutToServer=True, stderrToServer=True)  # , stdoutToServer=True, stderrToServer=True
+                pydevd.settrace(RDEBUG_HOST, port=RDEBUG_PORT, stdoutToServer=True, stderrToServer=True)
 
         try:
             self._data = dict()
@@ -522,7 +526,7 @@ class auto_re_t(idaapi.plugin_t):
                 self._handle_tags(fn, fn_an, known_refs)
 
             if self.view:
-                self.view.Close(idaapi.PluginForm.FORM_NO_CONTEXT)
+                self.view.Close(AutoREView.OPT_FORM_NO_CONTEXT)
             self.view = AutoREView(self._data)
             self.view.Show()
         except:
