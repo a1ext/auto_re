@@ -49,7 +49,7 @@ TAGS = {
             'GetAdaptersInfo', 'GetAdaptersAddresses', 'HttpQueryInfo', 'ObtainUserAgentString', 'WNetGetProviderName',
             'GetBestInterfaceEx', 'gethostbyname', 'getsockname', 'connect', 'WinHttpOpen', 'WinHttpSetTimeouts',
             'WinHttpSendRequest', 'WinHttpConnect', 'WinHttpCrackUrl', 'WinHttpReadData', 'WinHttpOpenRequest',
-            'WinHttpReceiveResponse', 'WinHttpQueryHeaders'],
+            'WinHttpReceiveResponse', 'WinHttpQueryHeaders', 'HttpSendRequestW', 'HttpSendRequestA', 'HttpAddRequestHeadersW', 'HttpAddRequestHeadersA', 'HttpOpenRequestW', 'HttpOpenRequestA', 'NetServerGetInfo', 'NetApiBufferFree', 'NetWkstaGetInfo'],
     'spawn': ['CreateProcess', 'ShellExecute', 'ShellExecuteEx', 'system', 'CreateProcessInternal', 'NtCreateProcess',
               'ZwCreateProcess', 'NtCreateProcessEx', 'ZwCreateProcessEx', 'NtCreateUserProcess', 'ZwCreateUserProcess',
               'RtlCreateUserProcess', 'NtCreateSection', 'ZwCreateSection', 'NtOpenSection', 'ZwOpenSection',
@@ -58,14 +58,17 @@ TAGS = {
               'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW'],
     'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'NtOpenProcess', 'WriteProcessMemory', 'NtWriteVirtualMemory',
                'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection', 'NtUnmapViewOfSection'],
-    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage'],
+    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage', 'CreateBindCtx', 'CoSetProxyBlanket', 'VariantClear'],
     'crypto': ['CryptAcquireContext', 'CryptProtectData', 'CryptUnprotectData', 'CryptProtectMemory',
                'CryptUnprotectMemory', 'CryptDecrypt', 'CryptEncrypt', 'CryptHashData', 'CryptDecodeMessage',
                'CryptDecryptMessage', 'CryptEncryptMessage', 'CryptHashMessage', 'CryptExportKey', 'CryptGenKey',
                'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage'],
     'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW'],
     'file': ['_open64', 'open64', 'open', 'open64', 'fopen', 'fread', 'fclose', 'fwrite', 'flock', 'read', 'write',
-             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64']
+             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64'],
+    'reg': ['RegOpenKeyExW', 'RegQueryValueExW', 'RegSetValueExW', 'RegCreateKeyExW', 'RegDeleteValueW', 'RegEnumKeyW', 'RegCloseKey', 'RegQueryInfoKeyW', 'RegOpenKeyExA', 'RegQueryValueExA', 'RegSetValueExA', 'RegCreateKeyExA', 'RegDeleteValueA', 'RegEnumKeyA',  'RegQueryInfoKeyA'],
+    'dev': ['DeviceIoControl'],
+    'wow': ['Wow64DisableWow64FsRedirection', 'Wow64RevertWow64FsRedirection']
 }
 
 STRICT_TAG_NAME_CHECKING = {'file'}
