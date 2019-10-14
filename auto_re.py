@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
+__version__ = '1.7'
 
 from collections import defaultdict
 import idaapi
@@ -92,6 +93,14 @@ def decode_insn(ea):
     else:
         if idaapi.decode_insn(ea):
             return idaapi.cmd.copy()
+
+
+def force_name(ea, new_name):
+    if not ea or ea == idaapi.BADADDR:
+        return
+    if idaapi.IDA_SDK_VERSION >= 700:
+        return idaapi.force_name(ea, new_name, idaapi.SN_NOCHECK)
+    return idaapi.do_name_anyway(ea, new_name, 0)
 
 
 class AutoReIDPHooks(idaapi.IDP_Hooks):
@@ -239,17 +248,9 @@ class AutoREView(idaapi.PluginForm):
         if new_name is None:
             return
 
-        self._rename(addr, new_name)
+        force_name(addr, new_name)
         renamed_name = idaapi.get_ea_name(addr)
         name_idx.model().setData(name_idx, renamed_name)
-
-    @classmethod
-    def _rename(cls, ea, new_name):
-        if not ea or ea == idaapi.BADADDR:
-            return
-        if idaapi.IDA_SDK_VERSION >= 700:
-            return idaapi.force_name(ea, new_name, idaapi.SN_NOCHECK)
-        return idaapi.do_name_anyway(ea, new_name, 0)
 
     def OnClose(self, form):
         if self._idp_hooks:
@@ -365,16 +366,16 @@ class auto_re_t(idaapi.plugin_t):
         tags = dict(fn_an['tags'])
         if not tags:
             return
-        print 'fn: %#08x tags: %s' % (fn.startEA, tags)
+        print 'fn: %#08x tags: %s' % (self.start_ea_of(fn), tags)
         cmt = idaapi.get_func_cmt(fn, True)
         if cmt:
             cmt += '\n'
         s = str(tags.keys())
-        name = idaapi.get_ea_name(fn.startEA)
-        item = {'ea': fn.startEA, 'name': name, 'tags': tags}
+        name = idaapi.get_ea_name(self.start_ea_of(fn))
+        item = {'ea': self.start_ea_of(fn), 'name': name, 'tags': tags}
         if not cmt or s not in cmt:
             idaapi.set_func_cmt(fn, '%sTAGS: %s' % (cmt or '', s), True)
-        # self.mark_position(fn.startEA, 'TAGS: %s' % s)
+        # self.mark_position(self.start_ea_of(fn), 'TAGS: %s' % s)
         for tag in tags:
             if tag not in self._data:
                 self._data[tag] = list()
@@ -393,7 +394,7 @@ class auto_re_t(idaapi.plugin_t):
         if not ea and dis.Op1.addr:
             ea = dis.Op1.addr
 
-        if idaapi.has_dummy_name(idaapi.getFlags(ea)):
+        if idaapi.has_dummy_name(self.get_flags_at(ea)):
             return
 
         # TODO: check is there jmp, push+retn then don't rename the func
@@ -408,10 +409,10 @@ class auto_re_t(idaapi.plugin_t):
 
         # if self._cfg.get('auto_rename'):
         if len(fn_an['math']) < self._MIN_MAX_MATH_OPS_TO_ALLOW_RENAME:
-            idaapi.do_name_anyway(fn.startEA, normalized)
+            force_name(self.start_ea_of(fn), normalized)
         # TODO: add an API to the view
         print 'fn: %#08x: %d calls, %d math%s possible name: %s, normalized: %s' % (
-            fn.startEA, len(fn_an['calls']), len(fn_an['math']), 'has bads' if fn_an['has_bads'] else '',
+            self.start_ea_of(fn), len(fn_an['calls']), len(fn_an['math']), 'has bads' if fn_an['has_bads'] else '',
             possible_name, normalized)
 
     # noinspection PyMethodMayBeStatic
@@ -424,7 +425,8 @@ class auto_re_t(idaapi.plugin_t):
         if dis.Op1.type == idaapi.o_mem and dis.Op1.addr:
             # TODO: check is there better way to determine is the function a wrapper
             v = dis.Op1.addr
-            if v and dis.itype == idaapi.NN_jmpni and idaapi.isData(idaapi.getFlags(v)) and self.__is_ptr_val(idaapi.getFlags(v)):
+            flags = self.get_flags_at(v)
+            if v and dis.itype == idaapi.NN_jmpni and self.is_data(flags) and self.__is_ptr_val(flags):
                 v = self.__get_ptr_val(v)
             return v
 
@@ -449,7 +451,7 @@ class auto_re_t(idaapi.plugin_t):
 
         for i in xrange(fnqty):
             fn = idaapi.getn_func(i)
-            items = list(FuncItems(fn.startEA))
+            items = list(FuncItems(self.start_ea_of(fn)))
             if len(items) not in (1, 2):
                 continue
 
@@ -482,17 +484,17 @@ class auto_re_t(idaapi.plugin_t):
                     if not match:
                         continue
 
-                    refs = list(CodeRefsTo(fn.startEA, 1))
+                    refs = list(CodeRefsTo(self.start_ea_of(fn), 1))
 
                     for ref in refs:
                         ref_fn = idaapi.get_func(ref)
                         if not ref_fn:
                             # idaapi.msg('AutoRE: there is no func for ref: %08x for api: %s' % (ref, name))
                             continue
-                        if tag not in rv[ref_fn.startEA]:
-                            rv[ref_fn.startEA][tag] = list()
-                        if name not in rv[ref_fn.startEA][tag]:
-                            rv[ref_fn.startEA][tag].append(name)
+                        if tag not in rv[self.start_ea_of(ref_fn)]:
+                            rv[self.start_ea_of(ref_fn)][tag] = list()
+                        if name not in rv[self.start_ea_of(ref_fn)][tag]:
+                            rv[self.start_ea_of(ref_fn)][tag].append(name)
         return dict(rv)
 
     def run(self, arg):
@@ -520,12 +522,12 @@ class auto_re_t(idaapi.plugin_t):
                 fn_an = self.analyze_func(fn)
 
                 # if fn_an['math']:
-                # 	print 'fn: %#08x has math' % fn.startEA
+                # 	print 'fn: %#08x has math' % self.start_ea_of(fn)
 
-                if idaapi.has_dummy_name(idaapi.getFlags(fn.startEA)):
+                if idaapi.has_dummy_name(self.get_flags_at(self.start_ea_of(fn))):
                     self._handle_calls(fn, fn_an)
 
-                known_refs = known_refs_tags.get(fn.startEA)
+                known_refs = known_refs_tags.get(self.start_ea_of(fn))
                 self._handle_tags(fn, fn_an, known_refs)
 
             if self.view:
@@ -541,9 +543,9 @@ class auto_re_t(idaapi.plugin_t):
     @classmethod
     def disasm_func(cls, fn):
         rv = list()
-        items = list(FuncItems(fn.startEA))
+        items = list(FuncItems(cls.start_ea_of(fn)))
         for item_ea in items:
-            obj = {'ea': item_ea, 'fn_ea': fn.startEA, 'dis': None}
+            obj = {'ea': item_ea, 'fn_ea': cls.start_ea_of(fn), 'dis': None}
             insn = decode_insn(item_ea)
             if insn is not None:
                 obj['dis'] = insn
@@ -621,6 +623,22 @@ class auto_re_t(idaapi.plugin_t):
             return idaapi.get_qword(ea)
 
         return (idaapi.get_dword if idaapi.IDA_SDK_VERSION >= 700 else idaapi.get_long)(ea)
+        
+    @classmethod
+    def start_ea_of(cls, o):
+        return getattr(o, 'start_ea' if idaapi.IDA_SDK_VERSION >= 700 else 'startEA')
+
+    @classmethod
+    def end_ea_of(cls, o):
+        return getattr(o, 'end_ea' if idaapi.IDA_SDK_VERSION >= 700 else 'endEA')
+
+    @classmethod
+    def get_flags_at(cls, ea):
+        return getattr(idaapi, 'get_flags' if idaapi.IDA_SDK_VERSION >= 700 else 'getFlags')(ea)
+
+    @classmethod
+    def is_data(cls, flags):
+        return getattr(idaapi, 'is_data' if idaapi.IDA_SDK_VERSION >= 700 else 'isData')(flags)
 
     @classmethod
     def analyze_func(cls, fn):
@@ -665,8 +683,8 @@ class auto_re_t(idaapi.plugin_t):
                 if ea not in items_set:
                     rv['strange_flow'] = True
 
-                # flags = idaapi.getFlags(ea)
-                # if dis.itype == idaapi.NN_jmpni and dis.Op1.type == o_mem and ea and idaapi.isData(flags):
+                # flags = self.get_flags_at(ea)
+                # if dis.itype == idaapi.NN_jmpni and dis.Op1.type == o_mem and ea and self.is_data(flags):
                 #     if cls.__is_ptr_val(flags):
                 #         val = cls.__get_ptr_val(ea)
                 #         if val:
