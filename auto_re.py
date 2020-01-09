@@ -21,6 +21,14 @@ else:
     from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
 
 
+try:
+    # Python 2.
+    xrange
+except NameError:
+    # Python 3.
+    xrange = range
+
+
 # enable to allow PyCharm remote debug
 RDEBUG = False
 # adjust this value to be a full path to a debug egg
@@ -166,7 +174,7 @@ class AutoREView(idaapi.PluginForm):
 
         self._idp_hooks = AutoReIDPHooks(self)
         if not self._idp_hooks.hook():
-            print 'IDP_Hooks.hook() failed'
+            print('IDP_Hooks.hook() failed')
 
         self.tv = QTreeView()
         self.tv.setExpandsOnDoubleClick(False)
@@ -314,7 +322,7 @@ class AutoREView(idaapi.PluginForm):
             idaapi.jumpto(addr)
 
     # def on_filter_text_changed(self, text):
-    #     print 'on_text_changed: %s' % text
+    #     print('on_text_changed: %s' % text)
 
 
 class auto_re_t(idaapi.plugin_t):
@@ -366,7 +374,7 @@ class auto_re_t(idaapi.plugin_t):
         tags = dict(fn_an['tags'])
         if not tags:
             return
-        print 'fn: %#08x tags: %s' % (self.start_ea_of(fn), tags)
+        print('fn: %#08x tags: %s' % (self.start_ea_of(fn), tags))
         cmt = idaapi.get_func_cmt(fn, True)
         if cmt:
             cmt += '\n'
@@ -411,9 +419,9 @@ class auto_re_t(idaapi.plugin_t):
         if len(fn_an['math']) < self._MIN_MAX_MATH_OPS_TO_ALLOW_RENAME:
             force_name(self.start_ea_of(fn), normalized)
         # TODO: add an API to the view
-        print 'fn: %#08x: %d calls, %d math%s possible name: %s, normalized: %s' % (
+        print('fn: %#08x: %d calls, %d math%s possible name: %s, normalized: %s' % (
             self.start_ea_of(fn), len(fn_an['calls']), len(fn_an['math']), 'has bads' if fn_an['has_bads'] else '',
-            possible_name, normalized)
+            possible_name, normalized))
 
     # noinspection PyMethodMayBeStatic
     def _check_is_jmp_wrapper(self, dis):
@@ -522,7 +530,7 @@ class auto_re_t(idaapi.plugin_t):
                 fn_an = self.analyze_func(fn)
 
                 # if fn_an['math']:
-                # 	print 'fn: %#08x has math' % self.start_ea_of(fn)
+                # 	print('fn: %#08x has math' % self.start_ea_of(fn))
 
                 if idaapi.has_dummy_name(self.get_flags_at(self.start_ea_of(fn))):
                     self._handle_calls(fn, fn_an)
@@ -607,7 +615,7 @@ class auto_re_t(idaapi.plugin_t):
                 if not match or name in rv['tags'][tag]:
                     continue
 
-                # print '%#08x: %s, tag: %s' % (dis.ea, name, tag)
+                # print('%#08x: %s, tag: %s' % (dis.ea, name, tag))
                 rv['tags'][tag].append(name)
                 break
 
