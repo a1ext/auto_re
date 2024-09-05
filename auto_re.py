@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
-__version__ = '1.8'
+__version__ = '1.9'
 
 from collections import defaultdict
 import idaapi
@@ -88,9 +88,12 @@ replacements = [
     ('?', '')
 ]
 
+def inf_is_64bit():
+    return (idaapi.inf_is_64bit if idaapi.IDA_SDK_VERSION >= 900 else idaapi.cvar.inf.is_64bit)()
+
 
 def get_addr_width():
-    return '16' if idaapi.cvar.inf.is_64bit() else '8'
+    return '16' if inf_is_64bit() else '8'
 
 
 def decode_insn(ea):
@@ -622,12 +625,12 @@ class auto_re_t(idaapi.plugin_t):
     @classmethod
     def __is_ptr_val(cls, flags):
         if idaapi.IDA_SDK_VERSION >= 700:
-            return (idaapi.is_qword if idaapi.cvar.inf.is_64bit() else idaapi.is_dword)(flags)
-        return (idaapi.isQwrd if idaapi.cvar.inf.is_64bit() else idaapi.isDwrd)(flags)
+            return (idaapi.is_qword if inf_is_64bit() else idaapi.is_dword)(flags)
+        return (idaapi.isQwrd if inf_is_64bit() else idaapi.isDwrd)(flags)
 
     @classmethod
     def __get_ptr_val(cls, ea):
-        if idaapi.cvar.inf.is_64bit():
+        if inf_is_64bit():
             return idaapi.get_qword(ea)
 
         return (idaapi.get_dword if idaapi.IDA_SDK_VERSION >= 700 else idaapi.get_long)(ea)
