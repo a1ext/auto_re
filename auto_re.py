@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
-__version__ = '1.9'
+__version__ = '2.0'
 
 from collections import defaultdict
 import idaapi
@@ -17,8 +17,13 @@ if HAS_PYSIDE:
     from PySide import QtGui, QtCore
     from PySide.QtGui import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
 else:
-    from PyQt5 import QtGui, QtCore
-    from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
+    if idaapi.IDA_SDK_VERSION >= 920:
+        from PySide6 import QtGui, QtCore
+        from PySide6.QtGui import QAction
+        from PySide6.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QTabWidget
+    else:
+        from PyQt5 import QtGui, QtCore
+        from PyQt5.QtWidgets import QTreeView, QVBoxLayout, QLineEdit, QMenu, QInputDialog, QAction, QTabWidget
 
 
 try:
@@ -58,26 +63,40 @@ TAGS = {
             'GetAdaptersInfo', 'GetAdaptersAddresses', 'HttpQueryInfo', 'ObtainUserAgentString', 'WNetGetProviderName',
             'GetBestInterfaceEx', 'gethostbyname', 'getsockname', 'connect', 'WinHttpOpen', 'WinHttpSetTimeouts',
             'WinHttpSendRequest', 'WinHttpConnect', 'WinHttpCrackUrl', 'WinHttpReadData', 'WinHttpOpenRequest',
-            'WinHttpReceiveResponse', 'WinHttpQueryHeaders', 'HttpSendRequestW', 'HttpSendRequestA', 'HttpAddRequestHeadersW', 'HttpAddRequestHeadersA', 'HttpOpenRequestW', 'HttpOpenRequestA', 'NetServerGetInfo', 'NetApiBufferFree', 'NetWkstaGetInfo'],
+            'WinHttpReceiveResponse', 'WinHttpQueryHeaders', 'HttpSendRequestW', 'HttpSendRequestA', 'HttpAddRequestHeadersW', 
+            'HttpAddRequestHeadersA', 'HttpOpenRequestW', 'HttpOpenRequestA', 'NetServerGetInfo', 'NetApiBufferFree', 'NetWkstaGetInfo',
+            'getnameinfo', 'getpeername', 'socketpair'],
     'spawn': ['CreateProcess', 'ShellExecute', 'ShellExecuteEx', 'system', 'CreateProcessInternal', 'NtCreateProcess',
               'ZwCreateProcess', 'NtCreateProcessEx', 'ZwCreateProcessEx', 'NtCreateUserProcess', 'ZwCreateUserProcess',
               'RtlCreateUserProcess', 'NtCreateSection', 'ZwCreateSection', 'NtOpenSection', 'ZwOpenSection',
               'NtAllocateVirtualMemory', 'ZwAllocateVirtualMemory', 'NtWriteVirtualMemory', 'ZwWriteVirtualMemory',
               'NtMapViewOfSection', 'ZwMapViewOfSection', 'OpenSCManager', 'CreateService', 'OpenService',
-              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW'],
+              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW', 'execve', 'execvp', 'fork', 'popen', 'execl',
+              'posix_spawn'],
     'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'NtOpenProcess', 'WriteProcessMemory', 'NtWriteVirtualMemory',
                'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection', 'NtUnmapViewOfSection'],
-    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage', 'CreateBindCtx', 'CoSetProxyBlanket', 'VariantClear'],
+    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage', 'CreateBindCtx', 
+            'CoSetProxyBlanket', 'VariantClear'],
     'crypto': ['CryptAcquireContext', 'CryptProtectData', 'CryptUnprotectData', 'CryptProtectMemory',
                'CryptUnprotectMemory', 'CryptDecrypt', 'CryptEncrypt', 'CryptHashData', 'CryptDecodeMessage',
                'CryptDecryptMessage', 'CryptEncryptMessage', 'CryptHashMessage', 'CryptExportKey', 'CryptGenKey',
                'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage'],
     'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW'],
     'file': ['_open64', 'open64', 'open', 'open64', 'fopen', 'fread', 'fclose', 'fwrite', 'flock', 'read', 'write',
-             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64'],
-    'reg': ['RegOpenKeyExW', 'RegQueryValueExW', 'RegSetValueExW', 'RegCreateKeyExW', 'RegDeleteValueW', 'RegEnumKeyW', 'RegCloseKey', 'RegQueryInfoKeyW', 'RegOpenKeyExA', 'RegQueryValueExA', 'RegSetValueExA', 'RegCreateKeyExA', 'RegDeleteValueA', 'RegEnumKeyA',  'RegQueryInfoKeyA'],
-    'dev': ['DeviceIoControl'],
-    'wow': ['Wow64DisableWow64FsRedirection', 'Wow64RevertWow64FsRedirection']
+             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64', 'sync', 'ftell', 'opendir'],
+    'reg': ['RegOpenKeyExW', 'RegQueryValueExW', 'RegSetValueExW', 'RegCreateKeyExW', 'RegDeleteValueW', 'RegEnumKeyW', 'RegCloseKey', 
+            'RegQueryInfoKeyW', 'RegOpenKeyExA', 'RegQueryValueExA', 'RegSetValueExA', 'RegCreateKeyExA', 'RegDeleteValueA',
+            'RegEnumKeyA',  'RegQueryInfoKeyA'],
+    'dev': ['DeviceIoControl', 'ioctl'],
+    'wow': ['Wow64DisableWow64FsRedirection', 'Wow64RevertWow64FsRedirection'],
+    'native': ['syscall'],
+    'mem': ['memcpy', 'memset', 'memmove', 'shmget', 'mmap', 'bcopy', 'munmap'],
+    'priv': ['geteuid', 'getuid', 'getgid', 'setreuid', 'setregid', 'getresuid', 'seteuid', 'getlogin_r', 'pam_open_session'],
+    'cmp': ['memcmp', 'strcmp', 'strncmp', 'strcasecmp'],
+    'fmt': ['vprintf', 'vsnprintf', 'sprintf', 'ssprintf', 'vfprintf'],
+    'parsing': ['sscanf', 'strtok', 'strtol', 'strtoul'],
+    'io': ['mkfifo'],
+    'ldr': ['LoadLibrary', 'dlopen', 'LdrLoadDLL', 'LdrLoadDriver'],
 }
 
 STRICT_TAG_NAME_CHECKING = {'file'}
@@ -457,13 +476,49 @@ class auto_re_t(idaapi.plugin_t):
 
         return dis0.Op1.value
 
+    def _check_is_mipsl_jmp(self, dis0, dis1, rest_items):
+        """
+        Checks for sequence like:
+            .plt:009F63E0                 lui     $t7, 0xA1
+            .plt:009F63E4                 lw      $t9, off_A08884
+            .plt:009F63E8                 jr      $t9
+        """
+
+        if (not dis0 or dis0.itype != idaapi.NN_popaw or dis0.Op1.type != idaapi.o_reg or 
+            dis0.Op2.type != idaapi.o_imm or not dis0.Op2.value):
+            return
+        if (not dis1 or dis1.itype != idaapi.NN_or or dis1.Op1.type != idaapi.o_reg or 
+            dis1.Op2.type != idaapi.o_mem or not dis1.Op2.addr or 
+            not idaapi.is_data(idaapi.get_flags(dis1.Op2.addr))):
+            return
+        if not rest_items: return
+
+        dis2 = decode_insn(rest_items[0])
+        if not dis2 or dis2.itype != idaapi.NN_loopwne or dis2.Op1.type != idaapi.o_reg:
+            return
+
+        addr = dis1.Op2.addr
+        seg = idaapi.getseg(addr)
+        if not seg: return
+        if idaapi.get_segm_name(seg) not in ('.got.plt',): return
+
+        offs = idaapi.get_dword(addr)
+        if not offs: return
+
+        offs_seg = idaapi.getseg(offs)
+        if not offs_seg or idaapi.get_segm_name(offs_seg) not in ('extern',): 
+            return
+
+        return offs
+
+
     def _preprocess_api_wrappers(self, fnqty):
         rv = defaultdict(dict)
 
         for i in xrange(fnqty):
             fn = idaapi.getn_func(i)
             items = list(FuncItems(self.start_ea_of(fn)))
-            if len(items) not in (1, 2):
+            if not (0 < len(items) <= 4):
                 continue
 
             dis0 = decode_insn(items[0])
@@ -475,6 +530,8 @@ class auto_re_t(idaapi.plugin_t):
                 dis1 = decode_insn(items[1])
                 if dis1 is not None:
                     addr = self._check_is_push_retn_wrapper(dis0, dis1)
+                if not addr:
+                    addr = self._check_is_mipsl_jmp(dis0, dis1, items[2:])
 
             if not addr:
                 continue
