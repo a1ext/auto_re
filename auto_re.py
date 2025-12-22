@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
-__version__ = '2.0'
+__version__ = '2.1'
 
 from collections import defaultdict
 import idaapi
@@ -90,10 +90,10 @@ TAGS = {
     'dev': ['DeviceIoControl', 'ioctl'],
     'wow': ['Wow64DisableWow64FsRedirection', 'Wow64RevertWow64FsRedirection'],
     'native': ['syscall'],
-    'mem': ['memcpy', 'memset', 'memmove', 'shmget', 'mmap', 'bcopy', 'munmap'],
+    'mem': ['memcpy', 'memset', 'memmove', 'shmget', 'mmap', 'bcopy', 'munmap', 'strncpy'],
     'priv': ['geteuid', 'getuid', 'getgid', 'setreuid', 'setregid', 'getresuid', 'seteuid', 'getlogin_r', 'pam_open_session'],
     'cmp': ['memcmp', 'strcmp', 'strncmp', 'strcasecmp'],
-    'fmt': ['vprintf', 'vsnprintf', 'sprintf', 'ssprintf', 'vfprintf'],
+    'fmt': ['vprintf', 'vsnprintf', 'sprintf', 'ssprintf', 'vfprintf', 'spprintf'],
     'parsing': ['sscanf', 'strtok', 'strtol', 'strtoul'],
     'io': ['mkfifo'],
     'ldr': ['LoadLibrary', 'dlopen', 'LdrLoadDLL', 'LdrLoadDriver'],
@@ -101,8 +101,15 @@ TAGS = {
 
 STRICT_TAG_NAME_CHECKING = {'file'}
 
-blacklist = {'@__security_check_cookie@4', '__SEH_prolog4', '__SEH_epilog4'}
-replacements = [
+BLACKLIST = frozenset([
+    '@__security_check_cookie@4',
+    '__SEH_prolog4',
+    '__SEH_epilog4',
+    'throw_system_error',
+    'chrono::system_clock',
+    'QObject::connect',
+])
+REPLACEMENTS = [
     ('??3@YAXPAX@Z', 'alloc'),
     ('?', '')
 ]
@@ -401,7 +408,7 @@ class auto_re_t(idaapi.plugin_t):
         if cmt:
             cmt += '\n'
         s = str(tags.keys())
-        name = idaapi.get_ea_name(self.start_ea_of(fn))
+        name = idaapi.get_long_name(self.start_ea_of(fn))
         item = {'ea': self.start_ea_of(fn), 'name': name, 'tags': tags}
         if not cmt or s not in cmt:
             idaapi.set_func_cmt(fn, '%sTAGS: %s' % (cmt or '', s), True)
@@ -432,7 +439,7 @@ class auto_re_t(idaapi.plugin_t):
             return
 
         possible_name = idaapi.get_ea_name(ea)
-        if not possible_name or possible_name in blacklist:
+        if not possible_name or possible_name in BLACKLIST:
             return
 
         normalized = self.normalize_name(possible_name)
@@ -475,7 +482,7 @@ class auto_re_t(idaapi.plugin_t):
             return
 
         return dis0.Op1.value
-
+    
     def _check_is_mipsl_jmp(self, dis0, dis1, rest_items):
         """
         Checks for sequence like:
@@ -499,18 +506,68 @@ class auto_re_t(idaapi.plugin_t):
 
         addr = dis1.Op2.addr
         seg = idaapi.getseg(addr)
-        if not seg: return
+        if not seg: return  # TODO: check if imagebase check is required
         if idaapi.get_segm_name(seg) not in ('.got.plt',): return
 
         offs = idaapi.get_dword(addr)
+        if not offs:
+            offs = idaapi.get_word(addr + idaapi.get_imagebase())
         if not offs: return
 
         offs_seg = idaapi.getseg(offs)
+        if not offs_seg:
+            offs_seg = idaapi.getseg(offs + idaapi.get_imagebase())
         if not offs_seg or idaapi.get_segm_name(offs_seg) not in ('extern',): 
             return
 
         return offs
 
+    def _check_is_armle_jmp(self, dis0, dis1, rest_items):
+        """
+        Check for sequence like:
+        ADDRL  R12, 0x606A4
+        LDR    PC, [R12, #(sprintf_ptr - 0x606A4)]!
+
+        # and
+        .plt:0000B0B4                 ADR             R12, 0xB0BC ; Load address
+        .plt:0000B0B8                 ADD             R12, R12, #0x55000 ; Rd = Op1 + Op2
+        .plt:0000B0BC                 LDR             PC, [R12,#(XXXX_ptr - 0x600BC)]! ; Indirect Jump
+        """
+        if not dis0 or not dis1: return
+
+        if dis0.itype not in (idaapi.ARM_adrl, idaapi.ARM_adr) or dis0.Op1.type != idaapi.o_reg or dis0.Op2.type != idaapi.o_imm:
+            return
+
+        r = dis0.Op1.reg
+        addr = dis0.Op2.value
+
+        if dis1.itype == idaapi.ARM_add and rest_items and dis1.Op1.type == idaapi.o_reg \
+                and dis1.Op2.type == idaapi.o_reg and dis1.Op3.type == idaapi.o_imm and dis1.Op1.reg == r and dis1.Op2.reg == r:
+
+            addr += dis1.Op3.value
+            dis1 = decode_insn(rest_items[0]) # ldr should be the third instruction
+
+        if dis1.itype != idaapi.ARM_ldrpc or dis1.Op1.type != idaapi.o_reg or dis1.Op2.type != idaapi.o_displ or \
+                dis1.Op2.reg != r or not dis1.Op2.addr:
+            return
+
+        addr = dis1.Op2.addr + addr
+        seg = idaapi.getseg(addr)
+        if not seg: return
+        if idaapi.get_segm_name(seg) not in ('.got',): return
+
+        offs = idaapi.get_dword(addr)
+        if not offs:
+            offs = idaapi.get_word(addr + idaapi.get_imagebase())
+        if not offs: return
+
+        offs_seg = idaapi.getseg(offs)
+        if not offs_seg:
+            offs_seg = idaapi.getseg(offs + idaapi.get_imagebase())
+        if not offs_seg or idaapi.get_segm_name(offs_seg) not in ('extern',):
+            return
+
+        return offs
 
     def _preprocess_api_wrappers(self, fnqty):
         rv = defaultdict(dict)
@@ -532,13 +589,15 @@ class auto_re_t(idaapi.plugin_t):
                     addr = self._check_is_push_retn_wrapper(dis0, dis1)
                 if not addr:
                     addr = self._check_is_mipsl_jmp(dis0, dis1, items[2:])
+                if not addr:
+                    addr = self._check_is_armle_jmp(dis0, dis1, items[2:])
 
             if not addr:
                 continue
 
-            name = idaapi.get_ea_name(addr)
+            name = idaapi.get_long_name(addr)
             name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
-            if not name:
+            if not name or any(x in name for x in BLACKLIST):
                 continue
 
             imp_stripped_name = name.lstrip('_')
@@ -550,6 +609,18 @@ class auto_re_t(idaapi.plugin_t):
                     else:
                         match = tag_api in name
                     if not match:
+                        continue
+
+                    p = name.find(tag_api)
+                    if p == -1:
+                        continue
+                    after_name = name[p+len(tag_api):]
+                    if after_name and after_name[0].isalpha():
+                        # not fully matching the api name, skip it
+                        continue
+                    pre_name = name[p-1:p] if p > 0 else None
+                    if pre_name and pre_name[0].isalpha():
+                        # not fully matching the api name, skip it
                         continue
 
                     refs = list(CodeRefsTo(self.start_ea_of(fn), 1))
@@ -577,6 +648,7 @@ class auto_re_t(idaapi.plugin_t):
 
                 import pydevd
                 pydevd.settrace(RDEBUG_HOST, port=RDEBUG_PORT, stdoutToServer=True, stderrToServer=True)
+
 
         try:
             self._data = dict()
@@ -762,7 +834,7 @@ class auto_re_t(idaapi.plugin_t):
 
     @classmethod
     def normalize_name(cls, n):
-        for repl in replacements:
+        for repl in REPLACEMENTS:
             n = n.replace(*repl)
         if '@' in n:
             n = n.split('@')[0]
