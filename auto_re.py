@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*
 __author__ = 'Trafimchuk Aliaksandr'
-__version__ = '2.1'
+__version__ = '2.2'
 
 from collections import defaultdict
 import idaapi

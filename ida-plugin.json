@@ -1,0 +1,24 @@
+{
+  "IDAMetadataDescriptorVersion": 1,
+  "plugin": {
+    "name": "AutoRE",
+    "version": "2.2.0",
+    "entryPoint": "auto_re.py",
+    "description": "IDA PRO auto-renaming plugin with tagging support",
+    "urls": {
+      "repository": "https://github.com/a1ext/auto_re"
+    },
+    "authors": [{
+      "name": "Aliaksandr Trafimchuk",
+      "email": "a13x4nd3r.t@gmail.com"
+    }],
+    "logoPath": ".img/Logo.png",
+    "keywords": [
+        "automatic",
+        "renaming",
+        "tagging",
+        "AutoRE",
+        "pwn"
+    ]
+  }
+}
