@@ -2,7 +2,7 @@
   "IDAMetadataDescriptorVersion": 1,
   "plugin": {
     "name": "AutoRE",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "entryPoint": "auto_re.py",
     "description": "IDA PRO auto-renaming plugin with tagging support",
     "urls": {
