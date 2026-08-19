@@ -50,56 +50,81 @@ TAGS_IGNORE_LIST = {
 IGNORE_CALL_LIST = {
     'RtlNtStatusToDosError',
     'GetLastError',
-    'SetLastError'
+    'SetLastError',
+    '__stack_chk_fail',
+    '__stack_chk_fail_local',
+    '__x86.get_pc_thunk.ax',
+    '__x86.get_pc_thunk.bx',
+    '__x86.get_pc_thunk.cx',
+    '__x86.get_pc_thunk.dx'
 }
 
 TAGS = {
-    'net': ['WSAStartup', 'socket', 'recv', 'recvfrom', 'send', 'sendto', 'acccept', 'bind', 'listen', 'select',
-            'setsockopt', 'ioctlsocket', 'closesocket', 'WSAAccept', 'WSARecv', 'WSARecvFrom', 'WSASend', 'WSASendTo',
-            'WSASocket', 'WSAConnect', 'ConnectEx', 'TransmitFile', 'HTTPOpenRequest', 'HTTPSendRequest',
-            'URLDownloadToFile', 'InternetCrackUrl', 'InternetOpen', 'InternetOpen', 'InternetConnect',
-            'InternetOpenUrl', 'InternetQueryOption', 'InternetSetOption', 'InternetReadFile', 'InternetWriteFile',
-            'InternetGetConnectedState', 'InternetSetStatusCallback', 'DnsQuery', 'getaddrinfo', 'GetAddrInfo',
-            'GetAdaptersInfo', 'GetAdaptersAddresses', 'HttpQueryInfo', 'ObtainUserAgentString', 'WNetGetProviderName',
-            'GetBestInterfaceEx', 'gethostbyname', 'getsockname', 'connect', 'WinHttpOpen', 'WinHttpSetTimeouts',
-            'WinHttpSendRequest', 'WinHttpConnect', 'WinHttpCrackUrl', 'WinHttpReadData', 'WinHttpOpenRequest',
-            'WinHttpReceiveResponse', 'WinHttpQueryHeaders', 'HttpSendRequestW', 'HttpSendRequestA', 'HttpAddRequestHeadersW', 
-            'HttpAddRequestHeadersA', 'HttpOpenRequestW', 'HttpOpenRequestA', 'NetServerGetInfo', 'NetApiBufferFree', 'NetWkstaGetInfo',
-            'getnameinfo', 'getpeername', 'socketpair'],
+    'net': ['WSAStartup', 'socket', 'recv', 'recvfrom', 'send', 'sendto', 'accept', 'accept4', 'bind', 'listen',
+            'select', 'pselect', 'setsockopt', 'getsockopt', 'ioctlsocket', 'closesocket', 'WSAAccept', 'WSARecv',
+            'WSARecvFrom', 'WSASend', 'WSASendTo', 'WSASocket', 'WSAConnect', 'ConnectEx', 'TransmitFile',
+            'HTTPOpenRequest', 'HTTPSendRequest', 'URLDownloadToFile', 'InternetCrackUrl', 'InternetOpen',
+            'InternetConnect', 'InternetOpenUrl', 'InternetQueryOption', 'InternetSetOption', 'InternetReadFile',
+            'InternetWriteFile', 'InternetGetConnectedState', 'InternetSetStatusCallback', 'DnsQuery', 'getaddrinfo',
+            'GetAddrInfo', 'GetAdaptersInfo', 'GetAdaptersAddresses', 'HttpQueryInfo', 'ObtainUserAgentString',
+            'WNetGetProviderName', 'GetBestInterfaceEx', 'gethostbyname', 'gethostbyname2', 'gethostbyaddr',
+            'getsockname', 'connect', 'WinHttpOpen', 'WinHttpSetTimeouts', 'WinHttpSendRequest', 'WinHttpConnect',
+            'WinHttpCrackUrl', 'WinHttpReadData', 'WinHttpOpenRequest', 'WinHttpReceiveResponse',
+            'WinHttpQueryHeaders', 'HttpSendRequestW', 'HttpSendRequestA', 'HttpAddRequestHeadersW',
+            'HttpAddRequestHeadersA', 'HttpOpenRequestW', 'HttpOpenRequestA', 'NetServerGetInfo', 'NetApiBufferFree',
+            'NetWkstaGetInfo', 'getnameinfo', 'getpeername', 'socketpair', 'sendmsg', 'recvmsg', 'sendmmsg',
+            'recvmmsg', 'sendfile', 'shutdown', 'poll', 'ppoll', 'epoll_create', 'epoll_create1', 'epoll_ctl',
+            'epoll_wait', 'epoll_pwait', 'htons', 'htonl', 'ntohs', 'ntohl', 'inet_aton', 'inet_addr', 'inet_ntoa',
+            'inet_pton', 'inet_ntop', 'getifaddrs', 'freeifaddrs'],
     'spawn': ['CreateProcess', 'ShellExecute', 'ShellExecuteEx', 'system', 'CreateProcessInternal', 'NtCreateProcess',
               'ZwCreateProcess', 'NtCreateProcessEx', 'ZwCreateProcessEx', 'NtCreateUserProcess', 'ZwCreateUserProcess',
               'RtlCreateUserProcess', 'NtCreateSection', 'ZwCreateSection', 'NtOpenSection', 'ZwOpenSection',
               'NtAllocateVirtualMemory', 'ZwAllocateVirtualMemory', 'NtWriteVirtualMemory', 'ZwWriteVirtualMemory',
               'NtMapViewOfSection', 'ZwMapViewOfSection', 'OpenSCManager', 'CreateService', 'OpenService',
-              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW', 'execve', 'execvp', 'fork', 'popen', 'execl',
-              'posix_spawn'],
+              'StartService', 'ControlService', 'ShellExecuteExA', 'ShellExecuteExW', 'fork', 'vfork', 'clone',
+              'execve', 'execvp', 'execv', 'execle', 'execlp', 'execvpe', 'execveat', 'execl', 'popen',
+              'posix_spawn', 'posix_spawnp', 'forkpty', 'openpty', 'login'],
     'inject': ['OpenProcess-disabled', 'ZwOpenProcess', 'NtOpenProcess', 'WriteProcessMemory', 'NtWriteVirtualMemory',
-               'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection', 'NtUnmapViewOfSection'],
-    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage', 'CreateBindCtx', 
+               'ZwWriteVirtualMemory', 'CreateRemoteThread', 'QueueUserAPC', 'ZwUnmapViewOfSection',
+               'NtUnmapViewOfSection', 'ptrace', 'process_vm_readv', 'process_vm_writev'],
+    'com': ['CoCreateInstance', 'CoInitializeSecurity', 'CoGetClassObject', 'OleConvertOLESTREAMToIStorage', 'CreateBindCtx',
             'CoSetProxyBlanket', 'VariantClear'],
     'crypto': ['CryptAcquireContext', 'CryptProtectData', 'CryptUnprotectData', 'CryptProtectMemory',
                'CryptUnprotectMemory', 'CryptDecrypt', 'CryptEncrypt', 'CryptHashData', 'CryptDecodeMessage',
                'CryptDecryptMessage', 'CryptEncryptMessage', 'CryptHashMessage', 'CryptExportKey', 'CryptGenKey',
-               'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage'],
+               'CryptCreateHash', 'CryptDecodeObjectEx', 'EncryptMessage', 'DecryptMessage', 'crypt', 'crypt_r'],
     'kbd': ['SendInput', 'VkKeyScanA', 'VkKeyScanW'],
-    'file': ['_open64', 'open64', 'open', 'open64', 'fopen', 'fread', 'fclose', 'fwrite', 'flock', 'read', 'write',
-             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64', 'sync', 'ftell', 'opendir'],
-    'reg': ['RegOpenKeyExW', 'RegQueryValueExW', 'RegSetValueExW', 'RegCreateKeyExW', 'RegDeleteValueW', 'RegEnumKeyW', 'RegCloseKey', 
-            'RegQueryInfoKeyW', 'RegOpenKeyExA', 'RegQueryValueExA', 'RegSetValueExA', 'RegCreateKeyExA', 'RegDeleteValueA',
-            'RegEnumKeyA',  'RegQueryInfoKeyA'],
+    'file': ['_open64', 'open64', 'open', 'fopen', 'fread', 'fclose', 'fwrite', 'flock', 'read', 'write',
+             'fstat', 'lstat', 'stat', 'chmod', 'chown', 'lchown', 'link', 'symlink', 'readdir', 'readdir64',
+             'sync', 'ftell', 'opendir', 'openat', 'openat2', 'close', 'close_range', 'creat', 'readv', 'writev',
+             'pread', 'pwrite', 'preadv', 'pwritev', 'lseek', 'ftruncate', 'truncate', 'unlink', 'unlinkat',
+             'rename', 'renameat', 'access', 'faccessat', 'readlink', 'readlinkat', 'realpath', 'statfs',
+             'fstatfs', 'statvfs', 'fstatvfs', 'mkdir', 'rmdir', 'mknod', 'mknodat', 'dup', 'dup2', 'dup3',
+             'fsync', 'fdatasync', 'splice', 'tee', 'copy_file_range', 'fchmod', 'fchown', 'sendfile'],
+    'reg': ['RegOpenKeyExW', 'RegQueryValueExW', 'RegSetValueExW', 'RegCreateKeyExW', 'RegDeleteValueW', 'RegEnumKeyW',
+            'RegCloseKey', 'RegQueryInfoKeyW', 'RegOpenKeyExA', 'RegQueryValueExA', 'RegSetValueExA', 'RegCreateKeyExA',
+            'RegDeleteValueA', 'RegEnumKeyA', 'RegQueryInfoKeyA'],
     'dev': ['DeviceIoControl', 'ioctl'],
     'wow': ['Wow64DisableWow64FsRedirection', 'Wow64RevertWow64FsRedirection'],
-    'native': ['syscall'],
-    'mem': ['memcpy', 'memset', 'memmove', 'shmget', 'mmap', 'bcopy', 'munmap', 'strncpy'],
-    'priv': ['geteuid', 'getuid', 'getgid', 'setreuid', 'setregid', 'getresuid', 'seteuid', 'getlogin_r', 'pam_open_session'],
-    'cmp': ['memcmp', 'strcmp', 'strncmp', 'strcasecmp'],
-    'fmt': ['vprintf', 'vsnprintf', 'sprintf', 'ssprintf', 'vfprintf', 'spprintf'],
-    'parsing': ['sscanf', 'strtok', 'strtol', 'strtoul'],
-    'io': ['mkfifo'],
-    'ldr': ['LoadLibrary', 'dlopen', 'LdrLoadDLL', 'LdrLoadDriver'],
+    'native': ['syscall', 'prctl'],
+    'mem': ['memcpy', 'memset', 'memmove', 'shmget', 'mmap', 'bcopy', 'munmap', 'strncpy', 'malloc', 'calloc',
+            'realloc', 'free', 'mprotect', 'mremap', 'madvise', 'brk', 'sbrk', 'aligned_alloc', 'posix_memalign',
+            'memfd_create', 'shmat', 'shmdt', 'shmctl', 'shm_open'],
+    'priv': ['geteuid', 'getuid', 'getgid', 'setreuid', 'setregid', 'getresuid', 'seteuid', 'getlogin_r',
+             'pam_open_session', 'setuid', 'setgid', 'setegid', 'setresgid', 'getegid', 'getresgid', 'setgroups',
+             'getgroups', 'initgroups', 'getpwuid', 'getpwnam', 'getpwnam_r', 'getspnam', 'getspnam_r', 'getlogin'],
+    'cmp': ['memcmp', 'strcmp', 'strncmp', 'strcasecmp', 'strncasecmp'],
+    'fmt': ['vprintf', 'vsnprintf', 'sprintf', 'ssprintf', 'vfprintf', 'spprintf', 'printf', 'fprintf',
+            'snprintf', 'dprintf'],
+    'parsing': ['sscanf', 'strtok', 'strtok_r', 'strtol', 'strtoul', 'strtoll', 'strtoull', 'atoi', 'atol',
+                'atoll', 'atof', 'strdup', 'strndup', 'strerror'],
+    'io': ['mkfifo', 'mknod', 'inotify_init', 'inotify_init1', 'inotify_add_watch', 'inotify_rm_watch',
+           'signalfd', 'eventfd', 'timerfd_create', 'pidfd_open'],
+    'ldr': ['LoadLibrary', 'dlopen', 'LdrLoadDLL', 'LdrLoadDriver', 'dlsym', 'dlclose', 'dladdr', 'dlinfo',
+            'dlmopen'],
 }
 
-STRICT_TAG_NAME_CHECKING = {'file'}
+STRICT_TAG_NAME_CHECKING = {'file', 'mem'}
 
 BLACKLIST = frozenset([
     '@__security_check_cookie@4',
@@ -367,7 +392,8 @@ class auto_re_t(idaapi.plugin_t):
 
     _CALLEE_NODE_NAMES = {
         idaapi.PLFM_MIPS: '$ mips',
-        idaapi.PLFM_ARM: '$ arm'
+        idaapi.PLFM_ARM: '$ arm',
+        idaapi.PLFM_386: '$ x86'
     }
     _DEFAULT_CALLEE_NODE_NAME = '$ vmm functions'
 
@@ -569,6 +595,36 @@ class auto_re_t(idaapi.plugin_t):
 
         return offs
 
+    def _check_is_plt_memjmp_wrapper(self, dis0, dis1):
+        """
+        Checks for the x86/x64 ELF PLT stub sequence:
+            push qword ptr [rip+off]
+            jmp  qword ptr [rip+off]
+        The GOT slot of the jmp holds the resolved target address.
+        :param dis0: the first insn
+        :param dis1: the second insn
+        :return: resolved target address, or None
+        """
+        if not dis0 or not dis1:
+            return
+
+        if dis0.itype != idaapi.NN_push or dis0.Op1.type != idaapi.o_mem:
+            return
+
+        if dis1.itype != idaapi.NN_jmpni or dis1.Op1.type != idaapi.o_mem or not dis1.Op1.addr:
+            return
+
+        v = dis1.Op1.addr
+        flags = self.get_flags_at(v)
+        if not self.is_data(flags) or not self.__is_ptr_val(flags):
+            return
+
+        target = self.__get_ptr_val(v)
+        if not target:
+            return
+
+        return target
+
     def _preprocess_api_wrappers(self, fnqty):
         rv = defaultdict(dict)
 
@@ -588,6 +644,8 @@ class auto_re_t(idaapi.plugin_t):
                 if dis1 is not None:
                     addr = self._check_is_push_retn_wrapper(dis0, dis1)
                 if not addr:
+                    addr = self._check_is_plt_memjmp_wrapper(dis0, dis1)
+                if not addr:
                     addr = self._check_is_mipsl_jmp(dis0, dis1, items[2:])
                 if not addr:
                     addr = self._check_is_armle_jmp(dis0, dis1, items[2:])
@@ -597,6 +655,7 @@ class auto_re_t(idaapi.plugin_t):
 
             name = idaapi.get_long_name(addr)
             name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
+            name = name.lstrip('.')
             if not name or any(x in name for x in BLACKLIST):
                 continue
 
@@ -702,9 +761,9 @@ class auto_re_t(idaapi.plugin_t):
     def get_callee(cls, ea):
         n = cls.get_callee_netnode()
         v = n.altval(ea)
-        v -= 1
-        if v == idaapi.BADNODE:
+        if v == idaapi.BADNODE or v == 0:
             return
+        v -= 1
         return v
 
     @classmethod
@@ -712,6 +771,10 @@ class auto_re_t(idaapi.plugin_t):
         rv['calls'].append(dis)
         if dis.Op1.type != o_mem or not dis.Op1.addr:
             callee = cls.get_callee(dis.ip)
+            if not callee:
+                # ELF binaries: no netnode entries; resolve the target from the
+                # operand directly (near/relative calls carry it in addr/value)
+                callee = dis.Op1.addr or dis.Op1.value
             if not callee:
                 return
         else:
@@ -723,6 +786,8 @@ class auto_re_t(idaapi.plugin_t):
     def _apply_tag_on_callee(cls, callee_ea, rv, is_call=False):
         name = idaapi.get_ea_name(callee_ea)
         name = name.replace(idaapi.FUNC_IMPORT_PREFIX, '')
+        # IDA 9.x names ELF .plt.sec thunks with a leading dot ('.accept')
+        name = name.lstrip('.')
 
         if '@' in name:
             name = name.split('@')[0]
@@ -836,6 +901,8 @@ class auto_re_t(idaapi.plugin_t):
     def normalize_name(cls, n):
         for repl in REPLACEMENTS:
             n = n.replace(*repl)
+        # IDA 9.x names ELF .plt.sec thunks with a leading dot ('.accept')
+        n = n.lstrip('.')
         if '@' in n:
             n = n.split('@')[0]
         if len(n) < 3:
